@@ -21,7 +21,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 
 # Сначала только composer файлы — для кеширования слоёв
-COPY composer.json composer.lock* ./
+COPY composer.json composer.lock ./
 
 # vendor здесь ещё нет (благодаря .dockerignore), ставим чисто
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts --ignore-platform-reqs
