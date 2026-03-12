@@ -1,0 +1,99 @@
+services:
+
+  # ── Nginx + PHP-FPM (Laravel web) ────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socket-notification-app
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    env_file: .env.docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/storage
+      - app-cache:/var/www/bootstrap/cache
+
+  # ── Laravel Reverb (WebSocket server) ────────────────────────────────────────
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socket-notification-reverb
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080", "--no-interaction"]
+    env_file: .env.docker
+    depends_on:
+      app:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/storage
+      - app-cache:/var/www/bootstrap/cache
+
+  # ── Queue Worker ──────────────────────────────────────────────────────────────
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: socket-notification-queue
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "redis", "--queue=broadcasting,default", "--sleep=3", "--tries=3"]
+    env_file: .env.docker
+    depends_on:
+      app:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/storage
+      - app-cache:/var/www/bootstrap/cache
+
+  # ── MySQL 8 ──────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: socket-notification-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: socket_notification
+      MYSQL_USER: socket_user
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootsecret
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootsecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: socket-notification-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mysql-data:
+  redis-data:
+  app-storage:
+  app-cache:

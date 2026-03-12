@@ -1,0 +1,10 @@
+vendor/
+node_modules/
+.env
+.env.*
+!.env.example
+storage/logs/*.log
+bootstrap/cache/*.php
+.git/
+.gitignore
+*.md
