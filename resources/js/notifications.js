@@ -118,10 +118,22 @@ window.Echo.private(`notifications.${CURRENT_USER_ID}`)
     })
     .subscribed(() => {
         wsDot.classList.add('connected');
+        console.log('[Echo] subscribed to notifications.' + CURRENT_USER_ID);
     })
-    .error(() => {
+    .error((err) => {
         wsDot.classList.remove('connected');
+        console.error('[Echo] subscription error:', err);
     });
+
+// Reconnect when user returns to tab
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (window.Echo.connector.pusher.connection.state !== 'connected') {
+            console.log('[Echo] reconnecting...');
+            window.Echo.connector.pusher.connect();
+        }
+    }
+});
 
 // ── Send notification forms ──────────────────────────────────────────────────
 document.querySelectorAll('.send-btn').forEach(btn => {
